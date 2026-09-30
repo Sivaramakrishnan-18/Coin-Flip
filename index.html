@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>FlipCoin - Heads or Tails</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome for clean minimalist icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <style>
+    :root {
+      --coin-size: clamp(170px, 48vw, 220px);
+    }
+    
+    * {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    
+    body {
+      touch-action: manipulation;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    .coin-perspective {
+      perspective: 1100px;
+    }
+
+    .coin {
+      width: var(--coin-size);
+      height: var(--coin-size);
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 1.2s cubic-bezier(0.18, 0.89, 0.32, 1.15);
+      cursor: pointer;
+    }
+
+    .coin-face {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Heads side - Deep Black */
+    .coin-heads {
+      background: radial-gradient(circle at 35% 30%, #2a2a2a, #0d0d0d 70%, #000000 100%);
+      color: #ffffff;
+      border: 4px solid #3f3f46;
+      box-shadow: 
+        inset 0 0 15px rgba(255, 255, 255, 0.15),
+        inset 0 0 0 7px #18181b,
+        0 10px 25px rgba(0, 0, 0, 0.6);
+      transform: rotateY(0deg);
+    }
+
+    /* Tails side - Crisp White */
+    .coin-tails {
+      background: radial-gradient(circle at 35% 30%, #ffffff, #ececec 65%, #d4d4d8 100%);
+      color: #09090b;
+      border: 4px solid #a1a1aa;
+      box-shadow: 
+        inset 0 0 15px rgba(0, 0, 0, 0.1),
+        inset 0 0 0 7px #f4f4f5,
+        0 10px 25px rgba(0, 0, 0, 0.3);
+      transform: rotateY(180deg);
+    }
+
+    /* Inner grooved coin edge effect */
+    .coin-face::after {
+      content: '';
+      position: absolute;
+      inset: 8px;
+      border-radius: 50%;
+      border: 2px dashed rgba(160, 160, 160, 0.35);
+      pointer-events: none;
+    }
+
+    /* Coin vertical launch and drop physics */
+    .flipping-motion {
+      animation: coinJump 1.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    @keyframes coinJump {
+      0% {
+        transform: translateY(0) scale(1);
+      }
+      45% {
+        transform: translateY(-90px) scale(1.08);
+      }
+      100% {
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Shadow underneath with dynamic height tracking */
+    .coin-shadow {
+      width: calc(var(--coin-size) * 0.78);
+      height: 18px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0) 70%);
+      transition: transform 1.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 1.25s ease;
+    }
+
+    .shadow-motion {
+      animation: shadowFade 1.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    }
+
+    @keyframes shadowFade {
+      0% {
+        transform: scale(1);
+        opacity: 0.8;
+      }
+      45% {
+        transform: scale(0.45);
+        opacity: 0.2;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 0.8;
+      }
+    }
+
+    /* Subtle pulse animation on result */
+    @keyframes badgePop {
+      0% { transform: scale(0.8); opacity: 0; }
+      70% { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .badge-pop {
+      animation: badgePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col justify-between selection:bg-zinc-700">
+
+  <header class="w-full max-w-md mx-auto px-4 pt-4 pb-2 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center text-zinc-950 font-black text-xs shadow-md">
+        HT
+      </div>
+      <div>
+        <h1 class="text-base font-bold tracking-tight text-white flex items-center gap-1.5">
+          FlipCoin
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700 font-mono">v1.0</span>
+        </h1>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-2">
+      <!-- Sound Toggle Button -->
+      <button id="soundToggleBtn" aria-label="Toggle Sound" class="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 flex items-center justify-center transition active:scale-95">
+        <i id="soundIcon" class="fa-solid fa-volume-high text-xs"></i>
+      </button>
+
+      <!-- GitHub Pages Info Button -->
+      <button id="guideModalBtn" aria-label="GitHub Pages Hosting Guide" class="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-800 flex items-center justify-center transition active:scale-95">
+        <i class="fa-brands fa-github text-sm"></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="w-full max-w-md mx-auto px-4 flex-1 flex flex-col items-center justify-center py-2">
+    
+    <!-- Outcome Indicator Pill -->
+    <div class="mb-5 h-9 flex items-center justify-center">
+      <div id="statusPill" class="px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide bg-zinc-900 text-zinc-300 border border-zinc-800 shadow-sm flex items-center gap-2 transition-all">
+        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span id="statusText">Tap coin or button to flip</span>
+      </div>
+    </div>
+
+    <!-- 3D Coin & Shadow Container -->
+    <div class="coin-perspective relative flex flex-col items-center justify-center">
+      
+      <!-- Coin Element (Heads: Black, Tails: White) -->
+      <div id="coin" class="coin mb-3" role="button" tabindex="0" aria-label="Heads or Tails Coin - Tap to flip">
+        <!-- Heads Face (Black) -->
+        <div class="coin-face coin-heads">
+          <div class="w-14 h-14 rounded-full border border-zinc-700/80 bg-zinc-900/60 flex items-center justify-center mb-2 shadow-inner">
+            <i class="fa-solid fa-crown text-2xl text-zinc-100"></i>
+          </div>
+          <span class="font-extrabold text-sm tracking-widest text-zinc-100 uppercase">HEADS</span>
+          <span class="text-[9px] font-mono text-zinc-400 tracking-wider mt-0.5">● BLACK ●</span>
+        </div>
+
+        <!-- Tails Face (White) -->
+        <div class="coin-face coin-tails">
+          <div class="w-14 h-14 rounded-full border border-zinc-300 bg-zinc-100 flex items-center justify-center mb-2 shadow-inner">
+            <span class="text-3xl font-black text-zinc-900 font-serif leading-none">1</span>
+          </div>
+          <span class="font-extrabold text-sm tracking-widest text-zinc-950 uppercase">TAILS</span>
+          <span class="text-[9px] font-mono text-zinc-600 tracking-wider mt-0.5">○ WHITE ○</span>
+        </div>
+      </div>
+
+      <!-- Drop Shadow -->
+      <div id="coinShadow" class="coin-shadow"></div>
+    </div>
+
+    <!-- Flip Action Button -->
+    <div class="w-full mt-6 flex flex-col items-center gap-3">
+      <button id="flipBtn" class="w-full py-3.5 px-6 rounded-2xl bg-white hover:bg-zinc-200 active:bg-zinc-300 text-zinc-950 font-bold text-base shadow-lg shadow-white/5 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+        <i class="fa-solid fa-arrows-rotate text-sm"></i>
+        <span>Flip Coin</span>
+      </button>
+
+      <div class="flex items-center justify-between w-full text-xs text-zinc-400 px-1">
+        <span class="flex items-center gap-1.5">
+          <span class="inline-block w-2.5 h-2.5 rounded-full bg-black border border-zinc-600"></span> Heads = Black
+        </span>
+        <span class="flex items-center gap-1.5">
+          <span class="inline-block w-2.5 h-2.5 rounded-full bg-white border border-zinc-400"></span> Tails = White
+        </span>
+      </div>
+    </div>
+
+    <section class="w-full bg-zinc-900/80 border border-zinc-800/80 rounded-2xl p-4 mt-6 backdrop-blur-sm">
+      
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xs font-bold text-zinc-400 uppercase tracking-wider">Score Tracker</h2>
+        <button id="resetStatsBtn" class="text-[11px] text-zinc-400 hover:text-rose-400 transition flex items-center gap-1">
+          <i class="fa-solid fa-trash-can text-[10px]"></i> Reset
+        </button>
+      </div>
+
+      <!-- Stat Counters Grid -->
+      <div class="grid grid-cols-3 gap-2.5 text-center">
+        <!-- Heads Box -->
+        <div class="bg-zinc-950/60 border border-zinc-800/70 rounded-xl p-2.5">
+          <span class="text-[11px] text-zinc-400 font-medium">Heads (Black)</span>
+          <div id="headsCountText" class="text-xl font-black text-white mt-0.5">0</div>
+          <span id="headsPctText" class="text-[10px] text-zinc-400">0%</span>
+        </div>
+
+        <!-- Tails Box -->
+        <div class="bg-zinc-950/60 border border-zinc-800/70 rounded-xl p-2.5">
+          <span class="text-[11px] text-zinc-400 font-medium">Tails (White)</span>
+          <div id="tailsCountText" class="text-xl font-black text-white mt-0.5">0</div>
+          <span id="tailsPctText" class="text-[10px] text-zinc-400">0%</span>
+        </div>
+
+        <!-- Total Box -->
+        <div class="bg-zinc-950/60 border border-zinc-800/70 rounded-xl p-2.5">
+          <span class="text-[11px] text-zinc-400 font-medium">Total Flips</span>
+          <div id="totalCountText" class="text-xl font-black text-white mt-0.5">0</div>
+          <span id="streakText" class="text-[10px] text-emerald-400 font-medium">Streak: -</span>
+        </div>
+      </div>
+
+      <!-- Ratio Progress Bar -->
+      <div class="mt-3">
+        <div class="h-2 w-full bg-zinc-800 rounded-full overflow-hidden flex">
+          <div id="headsBar" class="bg-zinc-600 transition-all duration-300" style="width: 50%"></div>
+          <div id="tailsBar" class="bg-white transition-all duration-300" style="width: 50%"></div>
+        </div>
+      </div>
+
+      <!-- Recent Flips Chips -->
+      <div class="mt-3 pt-3 border-t border-zinc-800/60 flex items-center justify-between text-xs">
+        <span class="text-zinc-400 text-[11px]">Recent (last 10):</span>
+        <div id="historyContainer" class="flex items-center gap-1.5 min-h-[22px]">
+          <span class="text-zinc-400 text-[10px] italic">No flips yet</span>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <footer class="w-full max-w-md mx-auto px-4 py-3 text-center text-xs text-zinc-400">
+    <button id="openHostGuideBtn" class="hover:text-white underline underline-offset-2 transition">
+      How to host this on GitHub Pages for free
+    </button>
+  </footer>
+
+  <!-- GitHub Hosting Instructions Modal -->
+  <div id="hostModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-2xl p-5 shadow-2xl relative text-left">
+      <div class="flex items-center justify-between pb-3 border-b border-zinc-800">
+        <div class="flex items-center gap-2">
+          <i class="fa-brands fa-github text-lg text-white"></i>
+          <h3 class="font-bold text-white text-sm">Host on GitHub Pages in 3 Steps</h3>
+        </div>
+        <button id="closeModalBtn" class="text-zinc-400 hover:text-white p-1 rounded-lg">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3.5 my-4 text-xs text-zinc-300 leading-relaxed">
+        <div class="flex gap-2.5">
+          <span class="w-5 h-5 rounded-full bg-zinc-800 text-zinc-200 font-bold flex items-center justify-center shrink-0 text-[11px]">1</span>
+          <div>
+            <p class="font-semibold text-white">Create a GitHub repository</p>
+            <p class="text-zinc-400">Go to <span class="text-zinc-200 font-mono">github.com/new</span>, name it (e.g. <code class="text-zinc-200">coin-flip</code>), and set it to <strong>Public</strong>.</p>
+          </div>
+        </div>
+
+        <div class="flex gap-2.5">
+          <span class="w-5 h-5 rounded-full bg-zinc-800 text-zinc-200 font-bold flex items-center justify-center shrink-0 text-[11px]">2</span>
+          <div>
+            <p class="font-semibold text-white">Save this code as index.html</p>
+            <p class="text-zinc-400">Upload or commit this single file into the root folder of your repository named exactly <code class="text-zinc-200">index.html</code>.</p>
+          </div>
+        </div>
+
+        <div class="flex gap-2.5">
+          <span class="w-5 h-5 rounded-full bg-zinc-800 text-zinc-200 font-bold flex items-center justify-center shrink-0 text-[11px]">3</span>
+          <div>
+            <p class="font-semibold text-white">Enable GitHub Pages</p>
+            <p class="text-zinc-400">Go to repository <strong>Settings &rarr; Pages</strong>. Under <em>Build and deployment</em>, set Source to <strong>Deploy from a branch</strong> and select <strong>main / (root)</strong> & save. Your live URL will appear in ~1 minute!</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-2">
+        <button id="modalGotItBtn" class="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 rounded-xl text-white font-medium text-xs transition">
+          Got it!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 bg-zinc-800 text-zinc-200 border border-zinc-700 text-xs rounded-full shadow-lg pointer-events-none opacity-0 transition-opacity duration-300 z-50">
+    Stats reset!
+  </div>
+
+  <script>
+    // Application State
+    const state = {
+      isFlipping: false,
+      headsCount: 0,
+      tailsCount: 0,
+      totalCount: 0,
+      currentRotation: 0,
+      soundEnabled: true,
+      currentStreakCount: 0,
+      currentStreakType: null,
+      history: []
+    };
+
+    // Load persisted data if available in localStorage
+    try {
+      const saved = localStorage.getItem('flipcoin_state');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        state.headsCount = parsed.headsCount || 0;
+        state.tailsCount = parsed.tailsCount || 0;
+        state.totalCount = parsed.totalCount || 0;
+        state.history = parsed.history || [];
+        state.currentStreakCount = parsed.currentStreakCount || 0;
+        state.currentStreakType = parsed.currentStreakType || null;
+      }
+    } catch (e) {
+      console.warn('Storage unavailable', e);
+    }
+
+    // Web Audio API Synthesizer (No external sound files required)
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    // Realistic coin spin pinging sound using frequency modulation & high-Q bandpass
+    function playCoinSpinSound() {
+      if (!state.soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+
+        // Series of 3 quick metallic pings as coin spins into the air
+        for (let i = 0; i < 3; i++) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(2100 + (i * 240), now + (i * 0.1));
+          osc.frequency.exponentialRampToValueAtTime(1400, now + (i * 0.1) + 0.18);
+
+          gain.gain.setValueAtTime(0.18, now + (i * 0.1));
+          gain.gain.exponentialRampToValueAtTime(0.001, now + (i * 0.1) + 0.18);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now + (i * 0.1));
+          osc.stop(now + (i * 0.1) + 0.2);
+        }
+      } catch (err) {
+        console.error('Audio playback error', err);
+      }
+    }
+
+    // Realistic coin landing / tabletop thud with metallic resonance
+    function playCoinLandSound() {
+      if (!state.soundEnabled) return;
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+
+        // Metallic clink
+        const clink = ctx.createOscillator();
+        const clinkGain = ctx.createGain();
+        clink.type = 'triangle';
+        clink.frequency.setValueAtTime(1850, now);
+        clink.frequency.exponentialRampToValueAtTime(800, now + 0.12);
+        
+        clinkGain.gain.setValueAtTime(0.25, now);
+        clinkGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+        clink.connect(clinkGain);
+        clinkGain.connect(ctx.destination);
+        clink.start(now);
+        clink.stop(now + 0.16);
+
+        // Soft thud
+        const thud = ctx.createOscillator();
+        const thudGain = ctx.createGain();
+        thud.type = 'sine';
+        thud.frequency.setValueAtTime(160, now);
+        thud.frequency.exponentialRampToValueAtTime(40, now + 0.14);
+
+        thudGain.gain.setValueAtTime(0.35, now);
+        thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+
+        thud.connect(thudGain);
+        thudGain.connect(ctx.destination);
+        thud.start(now);
+        thud.stop(now + 0.15);
+      } catch (err) {
+        console.error('Landing audio error', err);
+      }
+    }
+
+    const coinEl = document.getElementById('coin');
+    const coinShadowEl = document.getElementById('coinShadow');
+    const flipBtn = document.getElementById('flipBtn');
+    const statusPill = document.getElementById('statusPill');
+    const statusText = document.getElementById('statusText');
+    const headsCountEl = document.getElementById('headsCountText');
+    const tailsCountEl = document.getElementById('tailsCountText');
+    const headsPctEl = document.getElementById('headsPctText');
+    const tailsPctEl = document.getElementById('tailsPctText');
+    const totalCountEl = document.getElementById('totalCountText');
+    const streakEl = document.getElementById('streakText');
+    const headsBar = document.getElementById('headsBar');
+    const tailsBar = document.getElementById('tailsBar');
+    const historyContainer = document.getElementById('historyContainer');
+    const soundToggleBtn = document.getElementById('soundToggleBtn');
+    const soundIcon = document.getElementById('soundIcon');
+    const resetStatsBtn = document.getElementById('resetStatsBtn');
+    const toastEl = document.getElementById('toast');
+    const hostModal = document.getElementById('hostModal');
+    const guideModalBtn = document.getElementById('guideModalBtn');
+    const openHostGuideBtn = document.getElementById('openHostGuideBtn');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const modalGotItBtn = document.getElementById('modalGotItBtn');
+
+    function flipCoin() {
+      if (state.isFlipping) return;
+      state.isFlipping = true;
+      flipBtn.disabled = true;
+
+      // Haptic feedback on mobile if supported
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate(25); } catch (e) {}
+      }
+
+      // Play launching spin sound
+      playCoinSpinSound();
+
+      // UI state during flip
+      statusText.textContent = "Flipping...";
+      statusPill.className = "px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide bg-zinc-800 text-yellow-300 border border-zinc-700 shadow-sm flex items-center gap-2 transition-all";
+
+      // 50/50 Random Choice: 0 for Heads, 1 for Tails
+      const resultIsHeads = Math.random() < 0.5;
+
+      // Calculate target 3D angle (Rotates multiple full spins + lands on face)
+      // Heads: 0 deg (mod 360 = 0)
+      // Tails: 180 deg (mod 360 = 180)
+      const currentMod = state.currentRotation % 360;
+      const targetSideAngle = resultIsHeads ? 0 : 180;
+      
+      // Ensure at least 5-7 full spins (1800 - 2520 degrees) in continuous forward direction
+      const baseSpins = 360 * 5;
+      let diff = targetSideAngle - currentMod;
+      if (diff <= 0) diff += 360;
+      
+      state.currentRotation += baseSpins + diff;
+
+      // Apply 3D rotation and vertical lift animation
+      coinEl.style.transform = `rotateY(${state.currentRotation}deg)`;
+      coinEl.classList.remove('flipping-motion');
+      coinShadowEl.classList.remove('shadow-motion');
+      
+      // Force layout reflow to re-trigger CSS keyframes smoothly
+      void coinEl.offsetWidth;
+      void coinShadowEl.offsetWidth;
+
+      coinEl.classList.add('flipping-motion');
+      coinShadowEl.classList.add('shadow-motion');
+
+      // Resolution on landing (1.25s animation duration)
+      setTimeout(() => {
+        handleFlipResult(resultIsHeads);
+      }, 1250);
+    }
+
+    function handleFlipResult(isHeads) {
+      state.isFlipping = false;
+      flipBtn.disabled = false;
+
+      // Play landing sound
+      playCoinLandSound();
+
+      // Mobile landing haptic
+      if ('vibrate' in navigator) {
+        try { navigator.vibrate([35, 30, 45]); } catch (e) {}
+      }
+
+      // Update counters
+      state.totalCount++;
+      const resultKey = isHeads ? 'HEADS' : 'TAILS';
+
+      if (isHeads) {
+        state.headsCount++;
+      } else {
+        state.tailsCount++;
+      }
+
+      // Streak calculation
+      if (state.currentStreakType === resultKey) {
+        state.currentStreakCount++;
+      } else {
+        state.currentStreakType = resultKey;
+        state.currentStreakCount = 1;
+      }
+
+      // Add to recent history (max 10)
+      state.history.unshift(resultKey);
+      if (state.history.length > 10) {
+        state.history.pop();
+      }
+
+      // Update result banner
+      if (isHeads) {
+        statusPill.className = "px-4 py-1.5 rounded-full text-xs font-bold tracking-wide bg-black text-white border border-zinc-700 shadow-md flex items-center gap-2 badge-pop";
+        statusText.innerHTML = '<i class="fa-solid fa-crown text-[11px] text-yellow-400"></i> It\'s HEADS (Black)!';
+      } else {
+        statusPill.className = "px-4 py-1.5 rounded-full text-xs font-bold tracking-wide bg-white text-zinc-950 border border-zinc-300 shadow-md flex items-center gap-2 badge-pop";
+        statusText.innerHTML = '<span class="font-serif font-black text-xs">1</span> It\'s TAILS (White)!';
+      }
+
+      updateUI();
+      saveState();
+    }
+
+    function updateUI() {
+      headsCountEl.textContent = state.headsCount;
+      tailsCountEl.textContent = state.tailsCount;
+      totalCountEl.textContent = state.totalCount;
+
+      const headsPct = state.totalCount > 0 ? Math.round((state.headsCount / state.totalCount) * 100) : 0;
+      const tailsPct = state.totalCount > 0 ? (100 - headsPct) : 0;
+
+      headsPctEl.textContent = `${headsPct}%`;
+      tailsPctEl.textContent = `${tailsPct}%`;
+
+      headsBar.style.width = `${state.totalCount === 0 ? 50 : headsPct}%`;
+      tailsBar.style.width = `${state.totalCount === 0 ? 50 : tailsPct}%`;
+
+      // Streak rendering
+      if (state.currentStreakCount > 0) {
+        const shortName = state.currentStreakType === 'HEADS' ? 'H' : 'T';
+        streakEl.textContent = `Streak: ${state.currentStreakCount}${shortName}`;
+      } else {
+        streakEl.textContent = 'Streak: -';
+      }
+
+      // Render recent history dots
+      if (state.history.length === 0) {
+        historyContainer.innerHTML = '<span class="text-zinc-500 text-[10px] italic">No flips yet</span>';
+      } else {
+        historyContainer.innerHTML = state.history.map(item => {
+          if (item === 'HEADS') {
+            return `<span title="Heads (Black)" class="w-5 h-5 rounded-full bg-black text-white border border-zinc-700 font-bold text-[9px] flex items-center justify-center shadow-sm">H</span>`;
+          } else {
+            return `<span title="Tails (White)" class="w-5 h-5 rounded-full bg-white text-zinc-950 border border-zinc-300 font-black text-[9px] flex items-center justify-center shadow-sm">T</span>`;
+          }
+        }).join('');
+      }
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem('flipcoin_state', JSON.stringify({
+          headsCount: state.headsCount,
+          tailsCount: state.tailsCount,
+          totalCount: state.totalCount,
+          history: state.history,
+          currentStreakCount: state.currentStreakCount,
+          currentStreakType: state.currentStreakType
+        }));
+      } catch (e) {
+        console.warn('Unable to save state', e);
+      }
+    }
+
+    function showToast(message) {
+      toastEl.textContent = message;
+      toastEl.classList.remove('opacity-0');
+      toastEl.classList.add('opacity-100');
+      setTimeout(() => {
+        toastEl.classList.remove('opacity-100');
+        toastEl.classList.add('opacity-0');
+      }, 1800);
+    }
+
+    // Flip triggers: Click coin or click main button
+    flipBtn.addEventListener('click', flipCoin);
+    coinEl.addEventListener('click', flipCoin);
+    
+    // Keyboard accessibility: space or enter on coin
+    coinEl.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' || e.code === 'Enter') {
+        e.preventDefault();
+        flipCoin();
+      }
+    });
+
+    // Sound toggle
+    soundToggleBtn.addEventListener('click', () => {
+      state.soundEnabled = !state.soundEnabled;
+      if (state.soundEnabled) {
+        soundIcon.className = "fa-solid fa-volume-high text-xs text-white";
+        showToast("Sound unmuted");
+      } else {
+        soundIcon.className = "fa-solid fa-volume-xmark text-xs text-zinc-500";
+        showToast("Sound muted");
+      }
+    });
+
+    // Reset statistics
+    resetStatsBtn.addEventListener('click', () => {
+      state.headsCount = 0;
+      state.tailsCount = 0;
+      state.totalCount = 0;
+      state.history = [];
+      state.currentStreakCount = 0;
+      state.currentStreakType = null;
+      saveState();
+      updateUI();
+      
+      statusPill.className = "px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide bg-zinc-900 text-zinc-300 border border-zinc-800 shadow-sm flex items-center gap-2";
+      statusText.textContent = "Tap coin or button to flip";
+      showToast("Statistics reset!");
+    });
+
+    // Modal dialog controls
+    const openModal = () => hostModal.classList.remove('hidden');
+    const closeModal = () => hostModal.classList.add('hidden');
+
+    guideModalBtn.addEventListener('click', openModal);
+    openHostGuideBtn.addEventListener('click', openModal);
+    closeModalBtn.addEventListener('click', closeModal);
+    modalGotItBtn.addEventListener('click', closeModal);
+    
+    hostModal.addEventListener('click', (e) => {
+      if (e.target === hostModal) closeModal();
+    });
+
+    // Initialize UI on page load
+    updateUI();
+  </script>
+</body>
+</html>
